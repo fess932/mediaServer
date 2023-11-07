@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+use std::fs::read_dir;
 use sqlx::sqlite::SqlitePoolOptions;
 use anyhow::Context;
 
@@ -14,5 +16,14 @@ async fn main() {
 
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
-    println!("Hello, world!");
+    scan()
+}
+
+fn scan() {
+    read_dir("/Users/fess932").expect("wtf").for_each(|x| {
+        // let b = ;
+        let a = x.expect("wtf");
+
+        println!("path {} {} is file {}", a.path().to_str().expect("wtf"), a.file_name().to_str().expect("wtf"), a.metadata().expect("wtf").is_file())
+    });
 }
