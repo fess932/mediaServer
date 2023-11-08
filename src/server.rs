@@ -3,9 +3,13 @@ use axum::http::{Request, StatusCode, Uri};
 use axum::response::Response;
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{query, SqlitePool};
+use std::env::split_paths;
+use std::path::Path;
+use std::str::FromStr;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
+use tracing_subscriber::fmt::format;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct File {
@@ -28,12 +32,36 @@ pub async fn file_handler(
     dir: Extension<String>,
     uri: Uri,
 ) -> Result<Response<BoxBody>, (StatusCode, String)> {
-    println!("uri {}", uri.clone());
-    let res = get_static_file(dir.clone(), uri.clone()).await?;
+    println!("origin uri {}", uri.clone());
+    let uri = uri.to_string();
+
+    let non_stripped_uri = Path::new(uri.as_str());
+    let strip_prefix = Path::new(dir.as_str());
+
+    println!(
+        "l {} p {}",
+        non_stripped_uri.to_str().expect("wtf"),
+        strip_prefix.to_str().expect("wtf")
+    );
+
+    let new_uri = format!(
+        "/{}",
+        non_stripped_uri
+            .strip_prefix(strip_prefix)
+            .expect("wtf")
+            .to_str()
+            .expect("wtf")
+    );
+
+    println!("stripped {}", new_uri);
+    let new_uri = Uri::from_str(new_uri.as_str()).expect("wtf");
+    println!("uri {}", new_uri.clone());
+
+    let res = get_static_file(dir.clone(), new_uri.clone()).await?;
     if res.status() == StatusCode::NOT_FOUND {
         // try with `.html`
         // TODO: handle if the Uri has query parameters
-        match format!("{}.html", uri).parse() {
+        match format!("{}.html", new_uri).parse() {
             Ok(uri_html) => get_static_file(dir, uri_html).await,
             Err(_) => Err((StatusCode::INTERNAL_SERVER_ERROR, "Invalid URI".to_string())),
         }

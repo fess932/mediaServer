@@ -2,6 +2,7 @@ mod server;
 
 use anyhow::Context;
 use async_recursion::async_recursion;
+use axum::http::Method;
 use axum::routing::get;
 use axum::{Extension, Router};
 use dotenvy::dotenv;
@@ -13,7 +14,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::SystemTime;
-use tracing_subscriber::fmt::layer;
+use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
@@ -21,6 +22,12 @@ async fn main() {
     dotenv().expect(".env file not found");
     let dburl = env::var("DATABASE_URL").expect("wtf not found config DATABASE_URL");
     let rootdir = env::var("ROOT_DIR").expect("wtf not found config ROOT_DIR");
+
+    let cors = CorsLayer::new()
+        // allow `GET` and `POST` when accessing the resource
+        .allow_methods([Method::GET, Method::POST])
+        // allow requests from any origin
+        .allow_origin(Any);
 
     let sqlpool = SqlitePoolOptions::new()
         .max_connections(5)
@@ -38,7 +45,8 @@ async fn main() {
             Router::new().route("/*path", get(server::file_handler)),
         )
         .layer(Extension(sqlpool))
-        .layer(Extension(rootdir));
+        .layer(Extension(rootdir.clone()))
+        .layer(cors);
 
     let mut ds = DirScanner {
         pool,
@@ -46,7 +54,7 @@ async fn main() {
     };
 
     let t = SystemTime::now();
-    ds.scan("/Volumes/public/Image/Manga").await;
+    ds.scan(rootdir.clone().to_string().as_str()).await;
     println!(
         "duration {:?}",
         SystemTime::now().duration_since(t).expect("wtf")
@@ -68,10 +76,16 @@ struct DirScanner {
 }
 
 impl DirScanner {
-    async fn write_file_to_db(&mut self, path: &str, name: &str) {
+    async fn write_file_to_db(&mut self, path: &str, name: &str, is_dir: bool) {
+        let mut file_type = "file";
+        if is_dir {
+            file_type = "dir"
+        }
+
         let result = sqlx::query("insert into files (path, name) values ($1, $2)")
             .bind(path)
             .bind(name)
+            .bind(file_type)
             .execute(&self.pool)
             .await;
 
@@ -106,6 +120,7 @@ impl DirScanner {
                 self.write_file_to_db(
                     entry.path().to_str().expect("wtf"),
                     entry.file_name().to_str().expect("wtf"),
+                    false,
                 )
                 .await
             }
