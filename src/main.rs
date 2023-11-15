@@ -1,5 +1,6 @@
 mod server;
 
+use crate::server::root;
 use anyhow::Context;
 use async_recursion::async_recursion;
 use axum::http::Method;
@@ -11,6 +12,7 @@ use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::{Pool, Sqlite};
 use std::env;
 use std::net::SocketAddr;
+use std::ptr::null;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::SystemTime;
@@ -36,7 +38,7 @@ async fn main() {
         .context(format!("could not connect to database url {}", dburl))
         .unwrap();
     let pool = sqlpool.clone();
-    sqlx::migrate!("./migrations").run(&sqlpool).await.unwrap();
+    // sqlx::migrate!("./migrations").run(&sqlpool).await.unwrap();
 
     let app = Router::new()
         .route("/", get(server::root))
@@ -54,6 +56,7 @@ async fn main() {
     };
 
     let t = SystemTime::now();
+    ds.init(rootdir.clone().to_string().as_str()).await;
     ds.scan(rootdir.clone().to_string().as_str()).await;
     println!(
         "duration {:?}",
@@ -76,18 +79,33 @@ struct DirScanner {
 }
 
 impl DirScanner {
-    async fn write_file_to_db(&mut self, path: &str, name: &str, is_dir: bool) {
+    async fn write_file_to_db(
+        &mut self,
+        path: &str,
+        name: &str,
+        is_dir: bool,
+        parent: Option<&str>,
+    ) {
         let mut file_type = "file";
         if is_dir {
             file_type = "dir"
         }
+        let parent_path = parent.unwrap_or("root");
 
-        let result = sqlx::query("insert into files (path, name) values ($1, $2)")
-            .bind(path)
-            .bind(name)
-            .bind(file_type)
-            .execute(&self.pool)
-            .await;
+        println!(
+            "type {} path {} \n parent_path {}",
+            file_type, path, parent_path,
+        );
+
+        let result = sqlx::query(
+            "insert into files (path, parent_path, name, type) values ($1, $2, $3, $4)",
+        )
+        .bind(path)
+        .bind(parent_path)
+        .bind(name)
+        .bind(file_type)
+        .execute(&self.pool)
+        .await;
 
         if let Err(err) = result {
             if UniqueViolation == err.as_database_error().expect("wtf").kind() {
@@ -98,12 +116,17 @@ impl DirScanner {
         };
     }
 
+    async fn init(&mut self, path: &str) {
+        println!("root dir {}", path);
+        self.write_file_to_db(path, "root", true, None).await;
+    }
+
     #[async_recursion]
     async fn scan(&mut self, path: &str) {
         let mut dir = tokio::fs::read_dir(path).await.expect("wtf");
 
         while let Some(entry) = dir.next_entry().await.unwrap() {
-            if self.n.load(Relaxed) > 60 {
+            if self.n.load(Relaxed) > 6000 {
                 return;
             }
             self.n.fetch_add(1, Relaxed);
@@ -111,21 +134,30 @@ impl DirScanner {
             let file_type = entry.file_type().await.expect("wtf");
             if file_type.is_file() {
                 println!(
-                    "path {} {} is file {}",
+                    "path {} name {} is file {}, path_dir {}",
                     entry.path().to_str().expect("wtf"),
                     entry.file_name().to_str().expect("wtf"),
-                    entry.metadata().await.expect("wtf").is_file()
+                    entry.metadata().await.expect("wtf").is_file(),
+                    path,
                 );
 
                 self.write_file_to_db(
                     entry.path().to_str().expect("wtf"),
                     entry.file_name().to_str().expect("wtf"),
                     false,
+                    Some(path),
                 )
                 .await
             }
             if file_type.is_dir() {
                 println!("dir {}", entry.file_name().to_str().expect("wtf"));
+                self.write_file_to_db(
+                    entry.path().to_str().expect("wtf"),
+                    entry.file_name().to_str().expect("wtf"),
+                    true,
+                    Some(path),
+                )
+                .await;
                 self.scan(entry.path().to_str().expect("wtf")).await
             }
         }

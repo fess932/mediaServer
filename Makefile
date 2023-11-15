@@ -16,4 +16,5 @@ update: clean_local_registry
 	cargo update
 
 cleandb:
-	sqlx database reset -y -D ${DATABASE_URL}
+	rm ./target/wtf.db
+	sqlx database setup -D ${DATABASE_URL}
