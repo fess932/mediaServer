@@ -1,6 +1,5 @@
 mod server;
 
-use crate::server::root;
 use anyhow::Context;
 use async_recursion::async_recursion;
 use axum::http::Method;
@@ -11,8 +10,6 @@ use sqlx::error::ErrorKind::UniqueViolation;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::{Pool, Sqlite};
 use std::env;
-use std::net::SocketAddr;
-use std::ptr::null;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::SystemTime;
@@ -101,12 +98,12 @@ impl DirScanner {
         let result = sqlx::query(
             "insert into files (path, parent_path, name, type) values ($1, $2, $3, $4)",
         )
-            .bind(path)
-            .bind(parent_path)
-            .bind(name)
-            .bind(file_type)
-            .execute(&self.pool)
-            .await;
+        .bind(path)
+        .bind(parent_path)
+        .bind(name)
+        .bind(file_type)
+        .execute(&self.pool)
+        .await;
 
         if let Err(err) = result {
             if UniqueViolation == err.as_database_error().expect("wtf").kind() {
@@ -146,7 +143,7 @@ impl DirScanner {
                     false,
                     Some(path),
                 )
-                    .await
+                .await
             }
             if file_type.is_dir() {
                 // println!("dir {}", entry.file_name().to_str().expect("wtf"));
@@ -156,7 +153,7 @@ impl DirScanner {
                     true,
                     Some(path),
                 )
-                    .await;
+                .await;
                 self.scan(entry.path().to_str().expect("wtf")).await
             }
         }

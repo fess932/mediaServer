@@ -2,15 +2,12 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
-use clap::builder::Str;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, SqlitePool};
-use std::env::split_paths;
+use sqlx::SqlitePool;
 use std::path::Path;
 use std::str::FromStr;
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
-use tracing_subscriber::fmt::format;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct File {
