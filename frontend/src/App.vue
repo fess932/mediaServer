@@ -3,7 +3,8 @@ import { ref } from 'vue';
 
 interface Image {
   name: String,
-  path: String
+  path: String,
+  type: String
 }
 
 const images = ref<Image[]>([]);
@@ -11,11 +12,17 @@ const images = ref<Image[]>([]);
 let update = async () => {
   images.value = []
   try {
-    let resp = await fetch("http://localhost:4444");
+    let resp = await fetch("http://localhost:3100");
     let json = await resp.json()
 
-    json.forEach((element: any) => {
-      console.log(element)
+    json.forEach((element: Image) => {
+      if (element.type ===  "dir") {
+        return
+      }
+      if (!element.path.endsWith(".jpg")) {
+        return
+      }
+
       images.value.push(element)
     });
 
@@ -25,7 +32,6 @@ let update = async () => {
   }
 }
 update()
-
 </script>
 
 <template>
@@ -33,25 +39,20 @@ update()
   <div>
     images
   </div>
-  <div v-for="image in images">
-    <a :href="`http://localhost:4444/static/${image.path}`"></a>
-    <img :src="`http://localhost:4444/static/${image.path}`" />
+  <div v-for="index in 10" :key="index" class="img">
+    <a :href="`http://localhost:3100/static/${images[index].path}`"></a>
+    <img :src="`http://localhost:3100/static/${images[index].path}`"  alt=""/>
   </div>
+
+<!--  <div v-for="image in images" class="img">-->
+<!--    <a :href="`http://localhost:3100/static/${image.path}`"></a>-->
+<!--    <img :src="`http://localhost:3100/static/${image.path}`"  alt=""/>-->
+<!--  </div>-->
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+.img {
+  width: 300px;
+  overflow: hidden;
 }
 </style>

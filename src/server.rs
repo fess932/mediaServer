@@ -2,6 +2,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
+use clap::builder::Str;
 use serde::{Deserialize, Serialize};
 use sqlx::{query, SqlitePool};
 use std::env::split_paths;
@@ -13,9 +14,13 @@ use tracing_subscriber::fmt::format;
 
 #[derive(Serialize, Deserialize, sqlx::FromRow, Clone)]
 pub struct File {
-    id: i64,
     name: String,
     path: String,
+    parent_path: String,
+
+    #[sqlx(rename = "type")]
+    #[serde(rename = "type")]
+    _type: String,
 }
 
 // basic handler that responds with a static string

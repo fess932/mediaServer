@@ -93,32 +93,30 @@ impl DirScanner {
         }
         let parent_path = parent.unwrap_or("root");
 
-        println!(
-            "type {} path {} \n parent_path {}",
-            file_type, path, parent_path,
-        );
+        // println!(
+        //     "type {} path {} \n parent_path {}",
+        //     file_type, path, parent_path,
+        // );
 
         let result = sqlx::query(
             "insert into files (path, parent_path, name, type) values ($1, $2, $3, $4)",
         )
-        .bind(path)
-        .bind(parent_path)
-        .bind(name)
-        .bind(file_type)
-        .execute(&self.pool)
-        .await;
+            .bind(path)
+            .bind(parent_path)
+            .bind(name)
+            .bind(file_type)
+            .execute(&self.pool)
+            .await;
 
         if let Err(err) = result {
             if UniqueViolation == err.as_database_error().expect("wtf").kind() {
                 // println!("already exists err: {} {}", err, path)
-            } else {
-                println!("db err: {}", err)
             }
         };
     }
 
     async fn init(&mut self, path: &str) {
-        println!("root dir {}", path);
+        // println!("root dir {}", path);
         self.write_file_to_db(path, "root", true, None).await;
     }
 
@@ -134,13 +132,13 @@ impl DirScanner {
 
             let file_type = entry.file_type().await.expect("wtf");
             if file_type.is_file() {
-                println!(
-                    "path {} name {} is file {}, path_dir {}",
-                    entry.path().to_str().expect("wtf"),
-                    entry.file_name().to_str().expect("wtf"),
-                    entry.metadata().await.expect("wtf").is_file(),
-                    path,
-                );
+                // println!(
+                //     "path {} name {} is file {}, path_dir {}",
+                //     entry.path().to_str().expect("wtf"),
+                //     entry.file_name().to_str().expect("wtf"),
+                //     entry.metadata().await.expect("wtf").is_file(),
+                //     path,
+                // );
 
                 self.write_file_to_db(
                     entry.path().to_str().expect("wtf"),
@@ -148,17 +146,17 @@ impl DirScanner {
                     false,
                     Some(path),
                 )
-                .await
+                    .await
             }
             if file_type.is_dir() {
-                println!("dir {}", entry.file_name().to_str().expect("wtf"));
+                // println!("dir {}", entry.file_name().to_str().expect("wtf"));
                 self.write_file_to_db(
                     entry.path().to_str().expect("wtf"),
                     entry.file_name().to_str().expect("wtf"),
                     true,
                     Some(path),
                 )
-                .await;
+                    .await;
                 self.scan(entry.path().to_str().expect("wtf")).await
             }
         }
