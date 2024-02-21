@@ -40,6 +40,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(server::root))
+        .route("/dirs", get(server::dirs))
         .nest(
             "/static",
             Router::new().route("/*path", get(server::file_handler)),

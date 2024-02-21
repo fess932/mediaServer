@@ -30,6 +30,17 @@ pub async fn root(Extension(pool): Extension<SqlitePool>) -> Json<Vec<File>> {
     Json(a)
 }
 
+pub async fn dirs(Extension(pool): Extension<SqlitePool>) -> Json<Vec<File>> {
+    // language=sqlite
+    let query = "select * from files where type=='dir'";
+    let a = sqlx::query_as::<_, File>(query)
+        .fetch_all(&pool)
+        .await
+        .expect("wtf");
+
+    Json(a)
+}
+
 pub async fn file_handler(
     dir: Extension<String>,
     uri: Uri,
