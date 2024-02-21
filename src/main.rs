@@ -16,6 +16,7 @@ use std::ptr::null;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::SystemTime;
+use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -65,10 +66,10 @@ async fn main() {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    let addr = SocketAddr::from(([127, 0, 0, 1], 4444));
-    tracing::debug!("listening on {}", addr);
-    axum::Server::bind(&"0.0.0.0:4444".parse().unwrap())
-        .serve(app.into_make_service())
+    let listener = TcpListener::bind("0.0.0.0:3100").await.unwrap();
+    tracing::debug!("listening on {}", "0.0.0.0:3100");
+    println!("server running at :3100");
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }

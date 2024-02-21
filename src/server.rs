@@ -1,6 +1,6 @@
-use axum::body::{boxed, Body, BoxBody};
+use axum::body::Body;
 use axum::http::{Request, StatusCode, Uri};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use sqlx::{query, SqlitePool};
@@ -31,7 +31,7 @@ pub async fn root(Extension(pool): Extension<SqlitePool>) -> Json<Vec<File>> {
 pub async fn file_handler(
     dir: Extension<String>,
     uri: Uri,
-) -> Result<Response<BoxBody>, (StatusCode, String)> {
+) -> Result<Response<Body>, (StatusCode, String)> {
     println!("origin uri {}", uri.clone());
     let uri = uri.to_string();
 
@@ -73,13 +73,13 @@ pub async fn file_handler(
 async fn get_static_file(
     dir: Extension<String>,
     uri: Uri,
-) -> Result<Response<BoxBody>, (StatusCode, String)> {
+) -> Result<Response<axum::body::Body>, (StatusCode, String)> {
     let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
 
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
     // When run normally, the root is the workspace root
     match ServeDir::new(dir.as_str()).oneshot(req).await {
-        Ok(res) => Ok(res.map(boxed)),
+        Ok(res) => Ok(Body::new(res).into_response()),
         Err(err) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Something went wrong: {}", err),
